@@ -1,0 +1,787 @@
+---
+title: "04_09_2024_fungal_sequence_processing_septoria_in_a_bag"
+output: html_document
+date: "2024-04-09"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Project Summary** 
+
+The following code describes the sequence processing steps used to analyze **ITS2** data generated for the **septora-in-a-bag** project. Data comes from DNA extracted from soils and surface sterilized roots. Samples were collected from pots that were amended with either a natural forest soil or an autoclaved forest soil. After soil amendments, *Populus trichocarpa* (black cottonwood) was planted in a subset of pots. The two different strains *Septoria musiva* (AKA *Sphaerulina musiva*) were added to pots. One strain was determined to be high virulence and the other was determined to be low virulence. Soils were collected from three different locations within the pots. 
+
+**Treatments**
+
+**Inoculum Type**
+
+1. **No Septoria** == NoSept
+2. **High Virulence Septoria** == Mn5
+3. **Low Virulence Septoria** == SARM07
+
+**Sampling Date**
+
+1. **Day 10** == D10
+2. **Day 25** == D25
+
+**Soil Amendment Type**
+
+1. **Autoclaved/Reduced Soil Community** == A
+2. **Not-Autoclaved/Full Community** == NA
+
+**Plant Presence**
+
+1. **No Plant in Pot** == NP
+2. **Plant in Pot** == P
+
+**Soil Collection Location**
+
+1. **Near Root** == NR
+2. **Middle of Pot** == MoP
+3. **Edge of Pot** == EoP
+
+Middle of pot is the same as near root for pots with plants. 
+
+# **Load Packages**
+
+Loading the packages required to complete the sequence processing. 
+```{r}
+#Load Packages
+library(dada2)
+library(Biostrings)
+library(ShortRead)
+library(reticulate)
+library(tidyr)
+library(dplyr)
+```
+
+# **Path Designations**
+
+Designating the paths for the directory that contains the ITS2 sequencing data from the following sequencing runs:
+
+1. 230628_M02014_Cregger_AC_SepBag_Initial_ITS_EvSeq_Michener_KM2P9: Soil collected prior to start of experiment (AKA Initial)
+2. 221007_Cregger_AC_SEED_Jo_Soil_Final_P1-ITS_KJWBP: Soil collected at day 10 
+3. 221013_Cregger_AC-SEED_Jo-Soil_Final_P2_ITS_KJR4Y: Soil collected at day 25
+4. 240402_M02014_Cregger_Onufrak_Sepinabag_Roots_16s_ITS_April2024_L282K
+
+```{r}
+# Initial
+
+# Creates an object that has the pathway for the sequence directory
+soil_its_path_initial<-"/Users/5io/Documents/septoria_in_a_bag/soil_amplicon_sequencing/its2_data/its2_amplicon_data_for_processing/230628_M02014_Cregger_AC_SepBag_Initial_ITS_EvSeq_Michener_KM2P9"
+
+# Lists the files present in the sequence directory
+list.files(soil_its_path_initial)
+
+# Creates objects for the forward and reverse reads
+forwardreads_its_soil_initial<-sort(list.files(soil_its_path_initial, pattern="R1_001",full.names=TRUE))
+reversereads_its_soil_initial<-sort(list.files(soil_its_path_initial, pattern="R2_001",full.names=TRUE))
+
+# Checks number of forward and reverse files. Should be an equal number of forward and reverse files.
+length(forwardreads_its_soil_initial)
+length(reversereads_its_soil_initial)
+
+# Creates an object  that strips away the pathway information leaving behind only the filename. 
+filebasename_its_soil_initial<-basename(forwardreads_its_soil_initial)
+
+#  Uses the sub function to strip out the general file info to create sample names that are reflective of sample names in metadata sheet. 
+basename_its_soil_initial<-sub("-ITS_.*","_initial_soil",filebasename_its_soil_initial)
+
+# Uses gsub to substitute the - for the _ which is used in the metadata sheet. 
+samplenames_its_soil_initial<-gsub("\\-","_",basename_its_soil_initial)
+
+unique(samplenames_its_soil_initial)
+
+
+# Day 10 (P2)
+
+# Creates an object that has the pathway for the sequence directory
+soil_its_path_p2<-"/Users/5io/Documents/septoria_in_a_bag/soil_amplicon_sequencing/its2_data/its2_amplicon_data_for_processing/221013_Cregger_AC-SEED_Jo-Soil_Final_P2_ITS_KJR4Y"
+
+# Lists the files present in the sequence directory
+list.files(soil_its_path_p2)
+
+# Creates objects for the forward and reverse reads
+forwardreads_its_soil_p2<-sort(list.files(soil_its_path_p2, pattern="R1_001",full.names=TRUE))
+reversereads_its_soil_p2<-sort(list.files(soil_its_path_p2, pattern="R2_001",full.names=TRUE))
+
+# Checks number of forward and reverse files. Should be an equal number of forward and reverse files.
+length(forwardreads_its_soil_p2)
+length(reversereads_its_soil_p2)
+
+# Creates an object  that strips away the pathway information leaving behind only the filename. 
+filebasename_its_soil_p2<-basename(forwardreads_its_soil_p2)
+
+#  Uses the sub function to strip out the general file info to create sample names that are reflective of sample names in metadata sheet. 
+basename_its_soil_p2<-sub("-ITS_.*","_D10_soil",filebasename_its_soil_p2)
+
+# Uses gsub to substitute the - for the _ which is used in the metadata sheet. 
+samplenames_its_soil_p2<-gsub("\\-","_",basename_its_soil_p2)
+
+unique(samplenames_its_soil_p2)
+
+# Day 25 (P1)
+
+# Creates an object that has the pathway for the sequence directory
+soil_its_path_p1<-"/Users/5io/Documents/septoria_in_a_bag/soil_amplicon_sequencing/its2_data/its2_amplicon_data_for_processing/221007_Cregger_AC_SEED_Jo_Soil_Final_P1-ITS_KJWBP"
+
+# Lists the files present in the sequence directory
+list.files(soil_its_path_p1)
+
+# Creates objects for the forward and reverse reads
+forwardreads_its_soil_p1<-sort(list.files(soil_its_path_p1, pattern="R1_001",full.names=TRUE))
+reversereads_its_soil_p1<-sort(list.files(soil_its_path_p1, pattern="R2_001",full.names=TRUE))
+
+# Checks number of forward and reverse files. Should be an equal number of forward and reverse files.
+length(forwardreads_its_soil_p1)
+length(reversereads_its_soil_p1)
+
+# Creates an object  that strips away the pathway information leaving behind only the filename. 
+filebasename_its_soil_p1<-basename(forwardreads_its_soil_p1)
+
+#  Uses the sub function to strip out the general file info to create sample names that are reflective of sample names in metadata sheet. 
+basename_its_soil_p1<-sub("-ITS_.*","_D25_soil",filebasename_its_soil_p1)
+
+# Uses gsub to substitute the - for the _ which is used in the metadata sheet. 
+samplenames_its_soil_p1<-gsub("\\-","_",basename_its_soil_p1)
+
+unique(samplenames_its_soil_p1)
+
+# Roots (D10 and D25)
+# Creating an object that has the pathway for the sequence directory
+roots_its_path<-"/Users/5io/Documents/septoria_in_a_bag/root_amplicon_sequencing/its2_amplicon_data_for_processing"
+
+# Listing the files present in the sequence directory
+list.files(roots_its_path)
+
+# Creating objects for the forward and reverse reads
+forwardreads_its_roots_raw<-sort(list.files(roots_its_path, pattern="R1_001",full.names=TRUE))
+reversereads_its_roots_raw<-sort(list.files(roots_its_path, pattern="R2_001",full.names=TRUE))
+
+# Excluding the second amp from the path object because it is empty and has no reads. 
+
+forwardreads_its_roots<-forwardreads_its_roots_raw[grep("Second",forwardreads_its_roots_raw,invert=TRUE)]
+reversereads_its_roots<-reversereads_its_roots_raw[grep("Second",reversereads_its_roots_raw,invert=TRUE)]
+
+# Checking number of forward and reverse files. Should be an equal number of forward and reverse files.
+length(forwardreads_its_roots)
+length(reversereads_its_roots)
+
+# Creating an object  that strips away the pathway information leaving behind only the filename.
+filebasename_its_roots<-basename(forwardreads_its_roots)
+
+basename_its_roots<-sub("-ITS.*","_roots",filebasename_its_roots)
+
+# Using gsub to substitute the - for the _ which is used in the metadata sheet. 
+samplenames_its_roots<-gsub("\\-","_",basename_its_roots)
+
+unique(samplenames_its_roots)
+```
+
+
+# Initial Quality Assessment
+
+Assessing quality of sequences using a qc plot.
+```{r}
+# Generates quality plots for initial soils. 
+forward_qual_plot_its_soil_initial_raw<-plotQualityProfile(forwardreads_its_soil_initial,aggregate = TRUE)
+forward_qual_plot_its_soil_initial_raw
+reverse_qual_plot_its_soil_initial_raw<-plotQualityProfile(reversereads_its_soil_initial,aggregate = TRUE)
+reverse_qual_plot_its_soil_initial_raw
+
+# Generates quality plots for day 10 soils. 
+forward_qual_plot_its_soil_p2_raw<-plotQualityProfile(forwardreads_its_soil_p2,aggregate = TRUE)
+forward_qual_plot_its_soil_p2_raw
+reverse_qual_plot_its_soil_p2_raw<-plotQualityProfile(reversereads_its_soil_p2,aggregate = TRUE)
+reverse_qual_plot_its_soil_p2_raw
+
+# Generates quality plots for day 25 soils.
+forward_qual_plot_its_soil_p1_raw<-plotQualityProfile(forwardreads_its_soil_p1,aggregate = TRUE)
+forward_qual_plot_its_soil_p1_raw
+reverse_qual_plot_its_soil_p1_raw<-plotQualityProfile(reversereads_its_soil_p1,aggregate = TRUE)
+reverse_qual_plot_its_soil_p1_raw
+
+# Generating quality plots for day 10 and day 25 roots. 
+forward_qual_plot_its_roots_raw<-plotQualityProfile(forwardreads_its_roots,aggregate = TRUE)
+forward_qual_plot_its_roots_raw
+reverse_qual_plot_its_roots_raw<-plotQualityProfile(reversereads_its_roots,aggregate = TRUE)
+reverse_qual_plot_its_roots_raw
+
+```
+
+# Initial Quality Filtering
+
+Removing reads with ambiguous bases prior to using cutadapt to remove primers. 
+
+```{r}
+# Initial Soils
+
+# Creates two path objects that will store the paths for the filtered forward and reverse reads. 
+forward.filtN_its_soil_initial<-file.path(soil_its_path_initial,"filtN",basename(forwardreads_its_soil_initial))
+reverse.filtN_its_soil_initial<-file.path(soil_its_path_initial,"filtN",basename(reversereads_its_soil_initial))
+
+# Filters forward and reverse reads using the filterAndTrim function. Specifying maxN=0 will indicate that sequences with at least 1 ambiguous base will be removed from the dataset. 
+filterAndTrim(forwardreads_its_soil_initial,forward.filtN_its_soil_initial,reversereads_its_soil_initial,reverse.filtN_its_soil_initial,maxN=0,multithread = TRUE)
+
+# Creates quality profiles for the pre-filtered forward and reverse reads.
+filtn_qualplot_fwd_its_soil_initial<-plotQualityProfile(forward.filtN_its_soil_initial, aggregate=TRUE)
+filtn_qualplot_fwd_its_soil_initial
+filtn_qualplot_rev_its_soil_initial<-plotQualityProfile(reverse.filtN_its_soil_initial, aggregate=TRUE)
+filtn_qualplot_rev_its_soil_initial
+
+# Soils (Day 10)
+
+# Creates two path objects that will store the paths for the filtered forward and reverse reads. 
+forward.filtN_its_soil_p2<-file.path(soil_its_path_p2,"filtN",basename(forwardreads_its_soil_p2))
+reverse.filtN_its_soil_p2<-file.path(soil_its_path_p2,"filtN",basename(reversereads_its_soil_p2))
+
+# Filters forward and reverse reads using the filterAndTrim function. Specifying maxN=0 will indicate that sequences with at least 1 ambiguous base will be removed from the dataset. 
+filterAndTrim(forwardreads_its_soil_p2,forward.filtN_its_soil_p2,reversereads_its_soil_p2,reverse.filtN_its_soil_p2,maxN=0,multithread = TRUE)
+
+# Creates quality profiles for the pre-filtered forward and reverse reads.
+filtn_qualplot_fwd_its_soil_p2<-plotQualityProfile(forward.filtN_its_soil_p2, aggregate=TRUE)
+filtn_qualplot_fwd_its_soil_p2
+filtn_qualplot_rev_its_soil_p2<-plotQualityProfile(reverse.filtN_its_soil_p2, aggregate=TRUE)
+filtn_qualplot_rev_its_soil_p2
+
+# Soils (Day 25)
+
+# Creates two path objects that will store the paths for the filtered forward and reverse reads. 
+forward.filtN_its_soil_p1<-file.path(soil_its_path_p1,"filtN",basename(forwardreads_its_soil_p1))
+reverse.filtN_its_soil_p1<-file.path(soil_its_path_p1,"filtN",basename(reversereads_its_soil_p1))
+
+# Filters forward and reverse reads using the filterAndTrim function. Specifying maxN=0 will indicate that sequences with at least 1 ambiguous base will be removed from the dataset. 
+filterAndTrim(forwardreads_its_soil_p1,forward.filtN_its_soil_p1,reversereads_its_soil_p1,reverse.filtN_its_soil_p1,maxN=0,multithread = TRUE)
+
+# Creates quality profiles for the pre-filtered forward and reverse reads.
+filtn_qualplot_fwd_its_soil_p1<-plotQualityProfile(forward.filtN_its_soil_p1, aggregate=TRUE)
+filtn_qualplot_fwd_its_soil_p1
+filtn_qualplot_rev_its_soil_p1<-plotQualityProfile(reverse.filtN_its_soil_p1, aggregate=TRUE)
+filtn_qualplot_rev_its_soil_p1
+
+# Roots (Day 10 and Day 25)
+
+# Creating two path objects that will store the paths for the filtered forward and reverse reads. 
+forward.filtN_its_roots<-file.path(roots_its_path,"filtN",basename(forwardreads_its_roots))
+reverse.filtN_its_roots<-file.path(roots_its_path,"filtN",basename(reversereads_its_roots))
+
+# Filtering forward and reverse reads using the filterAndTrim function. Specifying maxN=0 will indicate that sequences with at least 1 ambiguous base will be removed from the dataset. 
+filterAndTrim(forwardreads_its_roots,forward.filtN_its_roots,reversereads_its_roots,reverse.filtN_its_roots,maxN=0,multithread = TRUE)
+
+# Creates quality profiles for the pre-filtered forward and reverse reads.
+filtn_qualplot_fwd_its_roots<-plotQualityProfile(forward.filtN_its_roots, aggregate=TRUE)
+filtn_qualplot_fwd_its_roots
+filtn_qualplot_rev_its_roots<-plotQualityProfile(reverse.filtN_its_roots, aggregate=TRUE)
+filtn_qualplot_rev_its_roots
+```
+
+# Trimming Primers
+
+Removing primers using cutadapt. 
+
+## Cutadapt Flags and system connection
+
+Creating a function to generate primer flags for cutadapt. The function takes the following arguments:
+
+**amplicon**: The function comes pre-loaded with the most common primer sets used in the lab. This includes *its2_cregger* and *v4_cregger*. The default is *NULL* on the off-chance that another primer set is used. 
+
+**primer_fwd_list**: If amplicon is NULL then this is a list of user specified forward primer(s).
+
+**primer_rev_list**: If amplicon is NULL then this is a list of user specified reverse primer(s). 
+
+```{r}
+# Creating the primer_strings function
+primer_strings<-function(amplicon=NULL,primer_fwd_list=NULL,primer_rev_list=NULL){
+  if(is.null(amplicon)==FALSE && !amplicon=="its2_cregger" && !amplicon=="v4_cregger"){
+    stop("amplicon should be its2_cregger or v4_cregger. If using non-cregger lab primers leave the amplicon argument blank and specify primers in the primer_fwd_list and primer_rev_list")
+  }
+  cutadapt_primer_flags<-list()
+  if(is.null(amplicon)==FALSE && amplicon=="its2_cregger"){  
+  its3_forward<-c("CATCGATGAAGAACGCAG","CAACGATGAAGAACGCAG","CACCGATGAAGAACGCAG","CATCGATGAAGAACGTAG","CATCGATGAAGAACGTGG","CATCGATGAAGAACGCTG")
+    its4_reverse<-c("TCCTSCGCTTATTGATATGC","TCCTCGCCTTATTGATATGC")
+    its3_forward_rc<-lapply(its3_forward,dada2::rc)
+    its4_reverse_rc<-lapply(its4_reverse,dada2::rc)
+    for (i in 1:length(its3_forward)){
+      for(x in 1:length(its4_reverse_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-a"," ", "^",its3_forward[i],"...",its4_reverse_rc[x], sep=''))
+      }
+    }
+   for (i in 1:length(its4_reverse)){
+      for(x in 1:length(its3_forward_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-A"," ", "^",its4_reverse[i],"...",its3_forward_rc[x], sep=''))
+      }
+    }    
+  }else if(is.null(amplicon)==FALSE && amplicon=="v4_cregger"){
+    v4_forward<-c("GTGCCAGCMGCCGCGGTAA","GTGCCAGCMGCWGCGGTAA","GTGCCAGCMGCCGCGGTCA","GTGKCAGCMGCCGCGGTAA")
+    v4_reverse<-c("GGACTACHVGGGTWTCTAAT")
+    v4_forward_rc<-lapply(v4_forward,dada2::rc)
+    v4_reverse_rc<-lapply(v4_reverse,dada2::rc)
+    for (i in 1:length(v4_forward)){
+      for(x in 1:length(v4_reverse_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-a"," ", "^",v4_forward[i],"...",v4_reverse_rc[x], sep=''))
+      }
+    }
+   for (i in 1:length(v4_reverse)){
+      for(x in 1:length(v4_forward_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-A"," ", "^",v4_reverse[i],"...",v4_forward_rc[x], sep=''))
+      }
+    } 
+  }else if(is.null(amplicon)==TRUE){
+    primer_forward<-primer_fwd_list
+    primer_reverse<-primer_rev_list
+    primer_forward_rc<-lapply(primer_forward,dada2::rc)
+    primer_reverse_rc<-lapply(primer_reverse,dada2::rc)
+    for (i in 1:length(primer_forward)){
+      for(x in 1:length(primer_reverse_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-a"," ", "^",primer_forward[i],"...",primer_reverse_rc[x], sep=''))
+      }
+    }
+   for (i in 1:length(primer_reverse)){
+      for(x in 1:length(primer_forward_rc)){
+    cutadapt_primer_flags<-append(cutadapt_primer_flags,paste("-A"," ", "^",primer_reverse[i],"...",primer_forward_rc[x], sep=''))
+      }
+    } 
+  }
+    return(cutadapt_primer_flags)
+}
+
+# Specifies the conda environment to use for cutadapt
+use_condaenv("/opt/anaconda3/envs/cutadaptenv")
+
+# Uses the system2 function to pass commands to the shell to run cutadapt from R. Checking to make sure R can find Cutadapt. 
+system2("conda",args=c("run", "-n", "cutadaptenv", "cutadapt", "--version"))
+
+```
+
+## Primer Trimming
+
+```{r}
+# Specifying primer strings
+its_primer_strings<-primer_strings(amplicon="its2_cregger")
+
+# Trimming Initial Soils
+# Creates a directory to store the forward and reverse reads after they have been trimmed. 
+path.cut_initial<-file.path(soil_its_path_initial,"cutadapt")
+if(!dir.exists(path.cut_initial)) dir.create(path.cut_initial)
+
+forwardreads.cut_its_soil_initial<-file.path(path.cut_initial,basename(forwardreads_its_soil_initial))
+reversereads.cut_its_soil_initial<-file.path(path.cut_initial,basename(reversereads_its_soil_initial))
+
+# Uses cutadapt to remove the primers from each read. Removing any read that does not have the forward primer or the reverse primer in the correct orientation.
+for (i in seq_along(forwardreads_its_soil_initial)){
+  system2("conda",args=c("run -n cutadaptenv cutadapt",
+                         its_primer_strings,
+                          "--discard-untrimmed", "--minimum-length 10",
+                          "-o",forwardreads.cut_its_soil_initial[i], "-p",reversereads.cut_its_soil_initial[i],
+                          forward.filtN_its_soil_initial[i],reverse.filtN_its_soil_initial[i]),"--cores=12")
+}
+
+
+# Day 10
+# Creates a directory to store the forward and reverse reads after they have been trimmed. 
+path.cut_p2<-file.path(soil_its_path_p2,"cutadapt")
+if(!dir.exists(path.cut_p2)) dir.create(path.cut_p2)
+
+forwardreads.cut_its_soil_p2<-file.path(path.cut_p2,basename(forwardreads_its_soil_p2))
+reversereads.cut_its_soil_p2<-file.path(path.cut_p2,basename(reversereads_its_soil_p2))
+
+# Uses cutadapt to remove the primers from each read. Removing any read that does not have the forward primer or the reverse primer in the correct orientation.
+for (i in seq_along(forwardreads_its_soil_p2)){
+  system2("conda",args=c("run -n cutadaptenv cutadapt",
+                  its_primer_strings,
+                          "--discard-untrimmed", "--minimum-length 10",
+                          "-o",forwardreads.cut_its_soil_p2[i], "-p",reversereads.cut_its_soil_p2[i],
+                          forward.filtN_its_soil_p2[i],reverse.filtN_its_soil_p2[i]))
+}
+
+# Day 25
+# Creates a directory to store the forward and reverse reads after they have been trimmed. 
+path.cut_p1<-file.path(soil_its_path_p1,"cutadapt")
+if(!dir.exists(path.cut_p1)) dir.create(path.cut_p1)
+
+forwardreads.cut_its_soil_p1<-file.path(path.cut_p1,basename(forwardreads_its_soil_p1))
+reversereads.cut_its_soil_p1<-file.path(path.cut_p1,basename(reversereads_its_soil_p1))
+
+# Uses cutadapt to remove the primers from each read. Removing any read that does not have the forward primer or the reverse primer in the correct orientation.
+for (i in seq_along(forwardreads_its_soil_p1)){
+  system2("conda",args=c("run -n cutadaptenv cutadapt",
+                          its_primer_strings,
+                          "--discard-untrimmed", "--minimum-length 10",
+                          "-o",forwardreads.cut_its_soil_p1[i], "-p",reversereads.cut_its_soil_p1[i],
+                          forward.filtN_its_soil_p1[i],reverse.filtN_its_soil_p1[i]))
+}
+
+# Creating a directory to store the forward and reverse reads after they have been trimmed. 
+path.cut<-file.path(roots_its_path,"cutadapt")
+if(!dir.exists(path.cut)) dir.create(path.cut)
+
+forwardreads.cut_its_roots<-file.path(path.cut,basename(forwardreads_its_roots))
+reversereads.cut_its_roots<-file.path(path.cut,basename(reversereads_its_roots))
+
+# Using cutadapt to remove the primers from each read. Removing any read that does not have the forward primer or the reverse primer in the correct orientation.
+
+for (i in seq_along(forwardreads_its_roots)){
+  system2("conda",args=c("run -n cutadaptenv cutadapt",
+                          its_primer_strings,
+                          "--discard-untrimmed", "--minimum-length 10","--report=minimal",
+                          "-o",forwardreads.cut_its_roots[i], "-p",reversereads.cut_its_roots[i],
+                          forward.filtN_its_roots[i],reverse.filtN_its_roots[i]))
+}
+
+
+# Initial Soils
+
+# Creating new pathways for the quality filtered forward and reverse reads. 
+filtforward_its_soil_initial<-file.path(soil_its_path_initial, "filtered", (paste0(samplenames_its_soil_initial,"_F_filt.fastq")))
+filtreverse_its_soil_initial<-file.path(soil_its_path_initial,"filtered",paste0(samplenames_its_soil_initial,"_R_filt.fastq"))
+
+filtforward_its_soil_initial[duplicated(filtforward_its_soil_initial)]<-sub("filt.fastq.gz","v2_filt.fastq",filtforward_its_soil_initial[duplicated(filtforward_its_soil_initial)])
+filtreverse_its_soil_initial[duplicated(filtreverse_its_soil_initial)]<-sub("filt.fastq.gz","v2_filt.fastq",filtreverse_its_soil_initial[duplicated(filtreverse_its_soil_initial)])
+
+# Creating quality profiles for the primer trimmed forward and reverse reads. 
+primercut_qualplot_fwd_its_soil_initial<-plotQualityProfile(forwardreads.cut_its_soil_initial, aggregate=TRUE)
+primercut_qualplot_fwd_its_soil_initial
+primercut_qualplot_rev_its_soil_initial<-plotQualityProfile(reversereads.cut_its_soil_initial, aggregate=TRUE)
+primercut_qualplot_rev_its_soil_initial
+
+# Quality filtering reads using a maximum expected error threshold of 2 for the forward and reverse reads. 
+filter.out_its_soil_initial<-filterAndTrim(fwd=forwardreads.cut_its_soil_initial, filt=filtforward_its_soil_initial, rev=reversereads.cut_its_soil_initial, filt.rev=filtreverse_its_soil_initial, maxEE=c(2,2), compress=FALSE,truncLen = 225, multithread = TRUE)
+ 
+# Converting the filter.out_its_soil_initial object into a data frame. 
+filter.out_its_soil_initial<-as.data.frame(filter.out_its_soil_initial)
+
+# Checking to see the effects of the quality filtering on per sample read counts. 
+filter.out_its_soil_initial$diffs <- filter.out_its_soil_initial$reads.in-filter.out_its_soil_initial$reads.out
+
+# Using the order command to sort the dataframe by the new column (diffs) that created above. 
+filter.out_its_soil_initial[order(filter.out_its_soil_initial$reads.out),]
+
+filtforward_its_soil_initial_no_missing<-filtforward_its_soil_initial[grep("NTC_Amp1_initial_soil_F_filt.fastq|NTC_Amp2_initial_soil_F_filt.fastq",filtforward_its_soil_initial,invert = TRUE)]
+filtreverse_its_soil_initial_no_missing<-filtreverse_its_soil_initial[grep("NTC_Amp1_initial_soil_R_filt.fastq|NTC_Amp2_initial_soil_R_filt.fastq",filtreverse_its_soil_initial,invert = TRUE)]
+
+# Generating quality plots for the forward and reverse reads after quality filtering
+filtered_qualplot_fwd_its_soil_initial<-plotQualityProfile(filtforward_its_soil_initial_no_missing, aggregate=TRUE)
+filtered_qualplot_fwd_its_soil_initial
+filtered_qualplot_rev_its_soil_initial<-plotQualityProfile(filtreverse_its_soil_initial_no_missing, aggregate=TRUE)
+filtered_qualplot_rev_its_soil_initial
+
+
+# Day 10 Soils
+
+# Creating new pathways for the quality filtered forward and reverse reads. 
+filtforward_its_soil_p2<-file.path(soil_its_path_p2, "filtered", (paste0(samplenames_its_soil_p2,"_F_filt.fastq")))
+filtreverse_its_soil_p2<-file.path(soil_its_path_p2,"filtered",paste0(samplenames_its_soil_p2,"_R_filt.fastq"))
+
+filtforward_its_soil_p2[duplicated(filtforward_its_soil_p2)]<-sub("filt.fastq.gz","v2_filt.fastq",filtforward_its_soil_p2[duplicated(filtforward_its_soil_p2)])
+filtreverse_its_soil_p2[duplicated(filtreverse_its_soil_p2)]<-sub("filt.fastq.gz","v2_filt.fastq",filtreverse_its_soil_p2[duplicated(filtreverse_its_soil_p2)])
+
+# Creating quality profiles for the primer trimmed forward and reverse reads. 
+primercut_qualplot_fwd_its_soil_p2<-plotQualityProfile(forwardreads.cut_its_soil_p2, aggregate=TRUE)
+primercut_qualplot_fwd_its_soil_p2
+primercut_qualplot_rev_its_soil_p2<-plotQualityProfile(reversereads.cut_its_soil_p2, aggregate=TRUE)
+primercut_qualplot_rev_its_soil_p2
+
+# Quality filtering reads using a maximum expected error threshold of 2 for the forward and reverse reads. 
+filter.out_its_soil_p2<-filterAndTrim(fwd=forwardreads.cut_its_soil_p2, filt=filtforward_its_soil_p2, rev=reversereads.cut_its_soil_p2, filt.rev=filtreverse_its_soil_p2, maxEE=c(2,2), compress=FALSE,truncLen = 225, multithread = TRUE)
+ 
+# Converting the filter.out_its_soil_p2 object into a data frame. 
+filter.out_its_soil_p2<-as.data.frame(filter.out_its_soil_p2)
+
+# Checking to see the effects of the quality filtering on per sample read counts. 
+filter.out_its_soil_p2$diffs <- filter.out_its_soil_p2$reads.in-filter.out_its_soil_p2$reads.out
+
+# Using the order command to sort the dataframe by the new column (diffs) that created above. 
+filter.out_its_soil_p2[order(filter.out_its_soil_p2$reads.out),]
+
+# Generating quality plots for the forward and reverse reads after quality filtering
+filtered_qualplot_fwd_its_soil_p2<-plotQualityProfile(filtforward_its_soil_p2, aggregate=TRUE)
+filtered_qualplot_fwd_its_soil_p2
+filtered_qualplot_rev_its_soil_p2<-plotQualityProfile(filtreverse_its_soil_p2, aggregate=TRUE)
+filtered_qualplot_rev_its_soil_p2
+
+# Day 25 Soils
+
+# Creating new pathways for the quality filtered forward and reverse reads. 
+filtforward_its_soil_p1<-file.path(soil_its_path_p1, "filtered", (paste0(samplenames_its_soil_p1,"_F_filt.fastq")))
+filtreverse_its_soil_p1<-file.path(soil_its_path_p1,"filtered",paste0(samplenames_its_soil_p1,"_R_filt.fastq"))
+
+filtforward_its_soil_p1[duplicated(filtforward_its_soil_p1)]<-sub("filt.fastq.gz","v2_filt.fastq",filtforward_its_soil_p1[duplicated(filtforward_its_soil_p1)])
+filtreverse_its_soil_p1[duplicated(filtreverse_its_soil_p1)]<-sub("filt.fastq.gz","v2_filt.fastq",filtreverse_its_soil_p1[duplicated(filtreverse_its_soil_p1)])
+
+# Creating quality profiles for the primer trimmed forward and reverse reads. 
+primercut_qualplot_fwd_its_soil_p1<-plotQualityProfile(forwardreads.cut_its_soil_p1, aggregate=TRUE)
+primercut_qualplot_fwd_its_soil_p1
+primercut_qualplot_rev_its_soil_p1<-plotQualityProfile(reversereads.cut_its_soil_p1, aggregate=TRUE)
+primercut_qualplot_rev_its_soil_p1
+
+# Quality filtering reads using a maximum expected error threshold of 2 for the forward and reverse reads. 
+filter.out_its_soil_p1<-filterAndTrim(fwd=forwardreads.cut_its_soil_p1, filt=filtforward_its_soil_p1, rev=reversereads.cut_its_soil_p1, filt.rev=filtreverse_its_soil_p1, maxEE=c(2,2), compress=FALSE,truncLen = 225, multithread = TRUE)
+ 
+# Converting the filter.out_its_soil_p1 object into a data frame. 
+filter.out_its_soil_p1<-as.data.frame(filter.out_its_soil_p1)
+
+# Checking to see the effects of the quality filtering on per sample read counts. 
+filter.out_its_soil_p1$diffs <- filter.out_its_soil_p1$reads.in-filter.out_its_soil_p1$reads.out
+
+# Using the order command to sort the dataframe by the new column (diffs) that created above. 
+filter.out_its_soil_p1[order(filter.out_its_soil_p1$reads.out),]
+
+filtforward_its_soil_p1_no_missing<-filtforward_its_soil_p1[grep("NTC_2ndAMP_S98_L001_R1_001.fastq.gz_F_filt.fastq",filtforward_its_soil_p1,invert = TRUE)]
+filtreverse_its_soil_p1_no_missing<-filtreverse_its_soil_p1[grep("NTC_2ndAMP_S98_L001_R1_001.fastq.gz_R_filt.fastq",filtreverse_its_soil_p1,invert = TRUE)]
+
+# Generating quality plots for the forward and reverse reads after quality filtering
+filtered_qualplot_fwd_its_soil_p1<-plotQualityProfile(filtforward_its_soil_p1_no_missing, aggregate=TRUE)
+filtered_qualplot_fwd_its_soil_p1
+filtered_qualplot_rev_its_soil_p1<-plotQualityProfile(filtreverse_its_soil_p1_no_missing, aggregate=TRUE)
+filtered_qualplot_rev_its_soil_p1
+
+
+
+# Roots (Day 10 and Day 25)
+
+# Creating new pathways for the quality filtered forward and reverse reads. 
+filtforward_its_roots<-file.path(roots_its_path, "filtered", (paste0(samplenames_its_roots,"_F_filt.fastq")))
+filtreverse_its_roots<-file.path(roots_its_path,"filtered",paste0(samplenames_its_roots,"_R_filt.fastq"))
+
+# Creating quality profiles for the primer trimmed forward and reverse reads. 
+primercut_qualplot_fwd_its_roots<-plotQualityProfile(forwardreads.cut_its_roots, aggregate=TRUE)
+primercut_qualplot_fwd_its_roots
+primercut_qualplot_rev_its_roots<-plotQualityProfile(reversereads.cut_its_roots, aggregate=TRUE)
+primercut_qualplot_rev_its_roots
+
+# Quality filtering reads using a maximum expected error threshold of 2 for the forward and reverse reads. 
+filter.out_its_roots<-filterAndTrim(fwd=forwardreads.cut_its_roots, filt=filtforward_its_roots, rev=reversereads.cut_its_roots, filt.rev=filtreverse_its_roots, maxEE=c(2,2), compress=FALSE,truncLen = 225, multithread = TRUE)
+ 
+# Converting the filter.out_its_soil_p2 object into a data frame. 
+filter.out_its_roots<-as.data.frame(filter.out_its_roots)
+
+# Checking to see the effects of the quality filtering on per sample read counts. 
+filter.out_its_roots$diffs <- filter.out_its_roots$reads.in-filter.out_its_roots$reads.out
+
+# Using the order command to sort the dataframe by the new column (diffs) that created above. 
+filter.out_its_roots[order(filter.out_its_roots$reads.out),]
+
+# Removing files that were not written as a result of no reads passing filter
+filtforward_its_roots_no_missing<-subset(filtforward_its_roots,basename(filtforward_its_roots)%in%list.files(file.path(roots_its_path, "filtered")))
+
+filtreverse_its_roots_no_missing<-subset(filtreverse_its_roots,basename(filtreverse_its_roots)%in%list.files(file.path(roots_its_path, "filtered")))
+
+# Generating quality plots for the forward and reverse reads after quality filtering
+filtered_qualplot_fwd_its_roots<-plotQualityProfile(filtforward_its_roots_no_missing, aggregate=TRUE)
+filtered_qualplot_fwd_its_roots
+filtered_qualplot_rev_its_roots<-plotQualityProfile(filtreverse_its_roots_no_missing, aggregate=TRUE)
+filtered_qualplot_rev_its_roots
+```
+
+
+## DADA Denoising
+
+Denoising data by first estimating sequencing error rates and using the dada algorithm. 
+
+```{r}
+# Initial Soils
+# Dereplicating forward and reverse reads
+derepforward_its_soil_initial<-derepFastq(filtforward_its_soil_initial_no_missing,verbose=TRUE)
+derepreverse_its_soil_initial<-derepFastq(filtreverse_its_soil_initial_no_missing,verbose=TRUE)
+
+# Assigning the sample names to the dereplicated sequence objects
+names(derepforward_its_soil_initial)<-subset(samplenames_its_soil_initial,samplenames_its_soil_initial%in%sub("_F_filt.fastq","",names(derepforward_its_soil_initial)))
+names(derepreverse_its_soil_initial)<-subset(samplenames_its_soil_initial,samplenames_its_soil_initial%in%sub("_F_filt.fastq","",names(derepforward_its_soil_initial)))
+
+# Learning errors for forward and reverse reads. 
+errorforward_its_soil_initial<-learnErrors(derepforward_its_soil_initial, multithread = TRUE)
+errorreverse_its_soil_initial<-learnErrors(derepreverse_its_soil_initial,multithread = TRUE)
+
+# Error plots for forward & reverse reads
+errplots_fwd_its_soil_initial<-plotErrors(errorforward_its_soil_initial, nominalQ=TRUE)
+errplots_fwd_its_soil_initial
+errplots_rev_its_soil_initial<-plotErrors(errorreverse_its_soil_initial,nominalQ = TRUE)
+errplots_rev_its_soil_initial
+
+# Denoising with dada2
+dadaforwardreads_its_soil_initial<-dada(derepforward_its_soil_initial,err=errorforward_its_soil_initial,multithread = TRUE,pool=TRUE)
+dadareversereads.ds_its_soil_initial<-dada(derepreverse_its_soil_initial,err=errorreverse_its_soil_initial,multithread = TRUE,pool=TRUE)
+
+# Day 10 Soils
+
+# Dereplicating forward and reverse reads
+derepforward_its_soil_p2<-derepFastq(filtforward_its_soil_p2,verbose=TRUE)
+derepreverse_its_soil_p2<-derepFastq(filtreverse_its_soil_p2,verbose=TRUE)
+
+# Assigning the sample names to the dereplicated sequence objects
+names(derepforward_its_soil_p2)<-subset(samplenames_its_soil_p2,samplenames_its_soil_p2%in%sub("_F_filt.fastq","",names(derepforward_its_soil_p2)))
+names(derepreverse_its_soil_p2)<-subset(samplenames_its_soil_p2,samplenames_its_soil_p2%in%sub("_F_filt.fastq","",names(derepforward_its_soil_p2)))
+
+# Learning errors for forward and reverse reads. 
+errorforward_its_soil_p2<-learnErrors(derepforward_its_soil_p2, multithread = TRUE)
+errorreverse_its_soil_p2<-learnErrors(derepreverse_its_soil_p2,multithread = TRUE)
+
+# Error plots for forward & reverse reads
+errplots_fwd_its_soil_p2<-plotErrors(errorforward_its_soil_p2, nominalQ=TRUE)
+errplots_fwd_its_soil_p2
+errplots_rev_its_soil_p2<-plotErrors(errorreverse_its_soil_p2,nominalQ = TRUE)
+errplots_rev_its_soil_p2
+
+# Denoising with dada2
+dadaforwardreads_its_soil_p2<-dada(derepforward_its_soil_p2,err=errorforward_its_soil_p2,multithread = TRUE,pool=TRUE)
+dadareversereads.ds_its_soil_p2<-dada(derepreverse_its_soil_p2,err=errorreverse_its_soil_p2,multithread = TRUE,pool=TRUE)
+
+# Day 25 Soils
+
+# Dereplicating forward and reverse reads
+derepforward_its_soil_p1<-derepFastq(filtforward_its_soil_p1_no_missing,verbose=TRUE)
+derepreverse_its_soil_p1<-derepFastq(filtreverse_its_soil_p1_no_missing,verbose=TRUE)
+
+# Assigning the sample names to the dereplicated sequence objects
+names(derepforward_its_soil_p1)<-subset(samplenames_its_soil_p1,samplenames_its_soil_p1%in%sub("_F_filt.fastq","",names(derepforward_its_soil_p1)))
+names(derepreverse_its_soil_p1)<-subset(samplenames_its_soil_p1,samplenames_its_soil_p1%in%sub("_F_filt.fastq","",names(derepforward_its_soil_p1)))
+
+# Learning errors for forward and reverse reads. 
+errorforward_its_soil_p1<-learnErrors(derepforward_its_soil_p1, multithread = TRUE)
+errorreverse_its_soil_p1<-learnErrors(derepreverse_its_soil_p1,multithread = TRUE)
+
+# Error plots for forward & reverse reads
+errplots_fwd_its_soil_p1<-plotErrors(errorforward_its_soil_p1, nominalQ=TRUE)
+errplots_fwd_its_soil_p1
+errplots_rev_its_soil_p1<-plotErrors(errorreverse_its_soil_p1,nominalQ = TRUE)
+errplots_rev_its_soil_p1
+
+
+# Denoising with dada2
+dadaforwardreads_its_soil_p1<-dada(derepforward_its_soil_p1,err=errorforward_its_soil_p1,multithread = TRUE,pool=TRUE)
+dadareversereads.ds_its_soil_p1<-dada(derepreverse_its_soil_p1,err=errorreverse_its_soil_p1,multithread = TRUE,pool=TRUE)
+
+
+
+# Roots (Day 10 and Day 25)
+
+# Dereplicating forward and reverse reads
+derepforward_its_roots<-derepFastq(filtforward_its_roots_no_missing,verbose=TRUE)
+derepreverse_its_roots<-derepFastq(filtreverse_its_roots_no_missing,verbose=TRUE)
+
+# Assigning the sample names to the dereplicated sequence objects
+names(derepforward_its_roots)<-subset(samplenames_its_roots,samplenames_its_roots%in%sub("_F_filt.fastq","",names(derepforward_its_roots)))
+names(derepreverse_its_roots)<-subset(samplenames_its_roots,samplenames_its_roots%in%sub("_F_filt.fastq","",names(derepforward_its_roots)))
+
+# Learning errors for forward and reverse reads. 
+errorforward_its_roots<-learnErrors(derepforward_its_roots, multithread = TRUE)
+errorreverse_its_roots<-learnErrors(derepreverse_its_roots,multithread = TRUE)
+
+# Error plots for forward & reverse reads
+errplots_fwd_its_roots<-plotErrors(errorforward_its_roots, nominalQ=TRUE)
+errplots_fwd_its_roots
+errplots_rev_its_roots<-plotErrors(errorreverse_its_roots,nominalQ = TRUE)
+errplots_rev_its_roots
+
+# Denoising forward reads with dada2
+dadaforwardreads_its_roots<-dada(derepforward_its_roots,err=errorforward_its_roots,multithread = TRUE,pool=TRUE)
+
+# Denoisng reverse reads with dada2
+dadareversereads.ds_its_roots<-dada(derepreverse_its_roots,err=errorreverse_its_roots,multithread = TRUE,pool=TRUE)
+
+```
+
+
+## Merging Reads, Combining Sequence Tables, Removing Chimeras, and Assigning Taxonomy
+
+```{r}
+# Initial Soils
+# Merging forward and reverse reads using mergePairs.
+merge_its_soil_initial<-mergePairs(dadaforwardreads_its_soil_initial,derepforward_its_soil_initial,dadareversereads.ds_its_soil_initial,derepreverse_its_soil_initial,verbose=TRUE)
+
+# Creating a sequence table
+seqtab_its_soil_initial<-makeSequenceTable(merge_its_soil_initial)
+hist(nchar(colnames(seqtab_its_soil_initial)))
+
+# Day 10
+# Merging forward and reverse reads using mergePairs.
+merge_its_soil_p2<-mergePairs(dadaforwardreads_its_soil_p2,derepforward_its_soil_p2,dadareversereads.ds_its_soil_p2,derepreverse_its_soil_p2,verbose=TRUE)
+
+# Creating a sequence table
+seqtab_its_soil_p2<-makeSequenceTable(merge_its_soil_p2)
+hist(nchar(colnames(seqtab_its_soil_p2)))
+
+# Day 25
+# Merging forward and reverse reads using mergePairs.
+merge_its_soil_p1<-mergePairs(dadaforwardreads_its_soil_p1,derepforward_its_soil_p1,dadareversereads.ds_its_soil_p1,derepreverse_its_soil_p1,verbose=TRUE,minOverlap = 12)
+
+# Creating a sequence table
+seqtab_its_soil_p1<-makeSequenceTable(merge_its_soil_p1)
+hist(nchar(colnames(seqtab_its_soil_p1)))
+
+# Roots Day 10 and Day 25
+
+# Merging forward and reverse reads using mergePairs.
+merge_its_roots<-mergePairs(dadaforwardreads_its_roots,derepforward_its_roots,dadareversereads.ds_its_roots,derepreverse_its_roots,verbose=TRUE)
+
+# Creating a sequence table
+seqtab_its_roots<-makeSequenceTable(merge_its_roots)
+hist(nchar(colnames(seqtab_its_roots)))
+
+
+# Merging ASV tables from all four runs
+merged_sequence_table<-mergeSequenceTables(seqtab_its_soil_p1,seqtab_its_soil_p2,seqtab_its_soil_initial,seqtab_its_roots)
+
+# Removing chimeras using the removeBimeraDenovo function.
+seqtab.nochim_its<-removeBimeraDenovo(merged_sequence_table,method="consensus", multithread=TRUE, verbose=TRUE)
+
+# Number of ASVs in the study
+ncol((seqtab.nochim_its))
+nrow(seqtab.nochim_its)
+
+# Number of sequences
+sum(seqtab.nochim_its)
+
+# Assigning taxonomy using the assignTaxonomy function.
+taxa_its<-assignTaxonomy(seqtab.nochim_its,"/Users/5io/Documents/septoria_in_a_bag/root_amplicon_sequencing/its2_amplicon_data_for_processing/sh_general_release_all_04.04.2024/sh_general_release_dynamic_all_04.04.2024.fasta",multithread = TRUE, minBoot=80)
+
+# Converting the taxonomy assignments to data frame so we can filter the taxonomic assignments.
+taxa.original_its<-as.data.frame(taxa_its)
+
+# Filtering out ASVs not assigned to a fungal phyla
+taxa.na.omit_its<-taxa.original_its[-(which(is.na(taxa.original_its$Phylum))),]
+
+taxa.fungi_its<-taxa.na.omit_its[grep("k__Fungi",taxa.na.omit_its$Kingdom),]
+
+```
+
+## **Taxonomy Merging and ASV Filtering**
+The last step is to filter the ASV abundance table by merging the ASV table with the taxonomy assignments. This will remove ASVs from the count table that were not assigned to a fungal phyla or were identified as nematodes or plant sequences. 
+```{r}
+# Transposing the ASV table so that taxonomy can be added. 
+t.seqtab.nochim_its<-t(seqtab.nochim_its)
+
+# Merging the two tables together based on row name. 
+t.seqtab.nochim.filt_its_negs<-t.seqtab.nochim_its[row.names(t.seqtab.nochim_its)%in%row.names(taxa.fungi_its),]
+
+# Number of ASVs & number of sequences post-filtering
+nrow(t.seqtab.nochim.filt_its_negs)
+sum(t.seqtab.nochim.filt_its_negs)
+
+# Merging taxonomy information into ASV table
+t.seqtab.tax_its<-merge(t.seqtab.nochim.filt_its_negs,taxa.fungi_its, by="row.names")
+
+sort(colSums(t.seqtab.nochim.filt_its_negs))
+
+#  Creating ASV labels and make these new row names.
+asvnumber_its<-as.character(c(1:nrow(t.seqtab.tax_its)))
+asvnumber_its<-paste0("asv_its.",labels(asvnumber_its))
+
+row.names(t.seqtab.tax_its)<-NULL
+row.names(t.seqtab.tax_its)<-asvnumber_its
+
+mycosphaerella_taxa<-t.seqtab.tax_its[grep("Mycosphaerellaceae",t.seqtab.tax_its$Family),]
+
+mycosphaerella_seqs<-setNames(mycosphaerella_taxa$Row.names,row.names(mycosphaerella_taxa))
+
+mycosphaerella_seqs_set<-DNAStringSet(mycosphaerella_seqs)
+
+writeXStringSet(mycosphaerella_seqs_set,"~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_09_2024_its2_sequence_processing/mycosphaerella_seqs.fasta")
+
+write.table(t.seqtab.tax_its,"/Users/5io/Library/CloudStorage/OneDrive-OakRidgeNationalLaboratory/septoria_in_a_bag/amplicon_sequencing/analyses/04_09_2024_its2_sequence_processing/t.seqtab.tax_its_soil_roots.txt",row.names = TRUE,col.names = TRUE,sep='\t')
+
+
+```
