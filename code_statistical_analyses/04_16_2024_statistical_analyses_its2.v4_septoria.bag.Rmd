@@ -265,6 +265,23 @@ ell_2 <- rbind(ell_2, cbind(as.data.frame(with(pcoagraph.asv[pcoagraph.asv$ellli
 
 ```
 
+## PERMANOVA Results Formatter
+
+A function to reformat the PERMANOVA results to make it easier to enter information into excel for publication formatted tables. Function takes as input the following:
+
+1. **permanova_res_obj**: Object containing the output of adonis2 
+2. **df_name**: Name of data frame that was used for adonis2. Should be in quotes. 
+
+```{r}
+permanova_fmtr<-function(permanova_res_obj,df_name){
+  perm_tibble<-as_tibble(permanova_res_obj,rownames = "Variable")
+  perm_tibble[["Variable"]]<-gsub(paste0(df_name,"\\$"),"",perm_tibble[["Variable"]])
+  perm_tibble_v2<-data.frame(variable=perm_tibble[["Variable"]],F=perm_tibble[["F"]],df=paste0(perm_tibble[["Df"]],",",perm_tibble[grep("Residual",perm_tibble$Variable),2]),R2=perm_tibble[["R2"]],P=perm_tibble[,length(perm_tibble)])
+  return(perm_tibble_v2)
+}
+```
+
+
 ## Taxonomy String Cleaner
 
 A function to clean-up taxonomy string names so that they are more aesthetically pleasing. Function takes as input the following object:
@@ -571,27 +588,34 @@ ggplot(data=s.musiva_its_metadata_long,aes(x=septoria,y=count,fill=s.musiva.id))
 
 ```
 
+# Root Microbial Communities Sample Rarefaction
 
-# Root Analyses
+Roots will be analyzed separately from soils because a different extraction kit which can cause bias. Prior to conducting analyses all samples will be rarefied to the same sequencing depth. 
 
-Because roots were extracted using a different methods, its better to analyze those separately from soils. We also are waiting to redo the sequencing for some soils. Below are the alpha- and beta-diversity analyses for roots. 
+## Root Community Subsetting
 
-## Root Fungal Community Analyses
-
-Subsetting the fungal community ASV table to only include root samples. 
+Subsetting the fungal and bacteria community ASV tables to only include root samples. 
 
 ```{r}
-# First generating a table that is just root data
+# Subsetting to generate an ASV table that is only root fungal communities
 seqtab_its_roots<-seqtab_its[grep("roots",row.names(seqtab_its)),]
+
+# Subsetting to generate an ASV table that is only root bacterial communities
+seqtab_v4_roots<-seqtab_its[grep("roots",row.names(seqtab_v4)),]
+
+# Adjusting sample names so that they match what is in the metadata file
+row.names(seqtab_v4_roots)<-sub("16s_","",row.names(seqtab_v4_roots))
 ```
 
-## Fungal Sample Rarefaction
+## Fungal Community Sample Rarefaction
 
 Rarefying root fungal communities so that comparisons can be made between samples. Doing this in three steps:
 
 1. All root samples together
 2. Root samples taken from non-autoclaved soil amendments 
 3. Root samples taken from autoclaved soil amendments
+
+The logic for breaking it into three parts based on soil amendment is that non-autoclaved soil amendments typically have greater microbial diversity and are distinct from autoclaved soil amendments. 
 
 ### All Fungal Root Samples
 
@@ -611,7 +635,7 @@ seqtab_its_sample_counts_roots
 rare.asv.tab_its_roots<-rarefy_formatting(seqtab_its_roots,sample=6615)
 ```
 
-### Nonautoclaved Fungal Root Samples
+### Fungal Root Samples From Non-Autoclaved Soil Amendments
 
 ```{r}
 # Subsetting to only include nonautoclaved samples
@@ -632,7 +656,7 @@ seqtab_its_sample_counts_roots_nonautoclave
 rare.asv.tab_its_roots_nonautoclave<-rarefy_formatting(seqtab_its_roots_nonautoclave,sample=11779)
 ```
 
-### Autoclaved Fungal Root Samples
+### Fungal Root Samples From Autoclaved Soil Amendments
 
 ```{r}
 # Subsetting to only include autoclaved samples
@@ -653,9 +677,9 @@ seqtab_its_sample_counts_roots_autoclave
 rare.asv.tab_its_roots_autoclave<-rarefy_formatting(seqtab_its_roots_autoclave,sample=6615)
 ```
 
-### Data Export
+### Data Export: Fungal Rarefied ASV Table 
 
-Saving rarefied ASV tables to file for consistency 
+Saving rarefied ASV tables to file for consistency. Rarefaction is a random process and there will be small differences between ASV tables everytime rarefaction occurs and this ensures consistency in analyses. 
 
 ```{r}
 # Saving Rarefied ASV tables to file 
@@ -667,26 +691,15 @@ Saving rarefied ASV tables to file for consistency
 
 ```
 
+## Bacterial Community Sample Rarefaction
 
-## Root Bacterial Community Analyses
-
-Subsetting the bacterial community ASV table to only include root samples. 
-
-```{r}
-# First generating a table that is just root data
-seqtab_v4_roots<-seqtab_v4[grep("roots",row.names(seqtab_v4)),]
-
-# Adjusting sample names so that they match what is in the metadata file
-row.names(seqtab_v4_roots)<-sub("16s_","",row.names(seqtab_v4_roots))
-```
-
-## Bacterial Sample Rarefaction
-
-Rarefying root fungal communities so that comparisons can be made between samples. Doing this in three steps:
+Rarefying root bacterial communities so that comparisons can be made between samples. Doing this in three steps:
 
 1. All root samples together
 2. Root samples taken from non-autoclaved soil amendments 
 3. Root samples taken from autoclaved soil amendments
+
+The logic for breaking it into three parts based on soil amendment is that non-autoclaved soil amendments typically have greater microbial diversity and are distinct from autoclaved soil amendments. 
 
 ### All Bacterial Root Samples
 
@@ -706,7 +719,7 @@ seqtab_v4_sample_counts_roots
 rare.asv.tab_v4_roots<-rarefy_formatting(seqtab_v4_roots,sample=25691)
 ```
 
-### Nonautoclaved Bacterial Root Samples
+### Bacterial Root Samples From Non-Autoclaved Soil Amendments
 
 ```{r}
 # Subsetting to only include nonautoclaved samples
@@ -727,7 +740,7 @@ seqtab_v4_sample_counts_roots_nonautoclave
 rare.asv.tab_v4_roots_nonautoclave<-rarefy_formatting(seqtab_v4_roots_nonautoclave,sample=27299)
 ```
 
-### Autoclaved Bacterial Root Samples
+### Bacterial Root Samples From Autoclaved Soil Amendments
 
 ```{r}
 # Subsetting to only include autoclaved samples
@@ -748,9 +761,9 @@ seqtab_v4_sample_counts_roots_autoclave
 rare.asv.tab_v4_roots_autoclave<-rarefy_formatting(seqtab_v4_roots_autoclave,sample=25691)
 ```
 
-### Data Export
+### Data Export: Bacterial Rarefied ASV Table 
 
-Saving rarefied ASV tables to file for consistency 
+Saving rarefied ASV tables to file for consistency. Rarefaction is a random process and there will be small differences between ASV tables everytime rarefaction occurs and this ensures consistency in analyses. 
 
 ```{r}
 # Saving Rarefied ASV tables to file 
@@ -789,11 +802,9 @@ par(mfrow=c(2,2))
 plot(its.roots_q0)
 car::Anova(its.roots_q0,type="III")
 
-its.roots_q0_tukey<-TukeyHSD(its.roots_q0)
-its.roots_q0_tukey_sept_autoclave<-as.data.frame(its.roots_q0_tukey$`septoria:autoclave`)
-
-its.roots_q0_tukey_sept_autoclave[its.roots_q0_tukey_sept_autoclave$`p adj`>0.05,]
-
+# Conducting post-hoc tukey test to look at pairwise differences
+its.roots_q0_tukey<-TukeyHSD(its.roots_q0) 
+its.roots_q0_tukey
 
 # Performing ANOVA for q1 with interaction term first
 its.roots_q1<-aov(formula=log(q1)~septoria*autoclave*date,its.roots_alpha_diversity)
@@ -801,9 +812,9 @@ par(mfrow=c(2,2))
 plot(its.roots_q1)
 car::Anova(its.roots_q1,type="III")
 
+# Conducting post-hoc tukey test to look at pairwise differences
 its.roots_q1_tukey<-TukeyHSD(its.roots_q1)
-its.roots_q1_tukey_sept_autoclave<-as.data.frame(its.roots_q1_tukey$autoclave)
-its.roots_q1_tukey_sept_autoclave
+
 
 # Performing ANOVA for q2 with interaction term first
 its.roots_q2<-aov(formula=log(q2)~septoria*autoclave*date,its.roots_alpha_diversity)
@@ -811,16 +822,14 @@ par(mfrow=c(2,2))
 plot(its.roots_q2)
 car::Anova(its.roots_q2,type="III")
 
+# Conducting post-hoc tukey test to look at pairwise differences
 its.roots_q2_tukey<-TukeyHSD(its.roots_q2)
-its.roots_q2_tukey_sept_autoclave<-as.data.frame(its.roots_q2_tukey$autoclave)
-its.roots_q2_tukey_sept_autoclave
 
 # Converting to long form
 its.roots_alpha_diversity_long<-gather(its.roots_alpha_diversity,key="q",value="index",14:16)
 
+# Creating an object that has the significance difference lettering based on Tukey's tests. 
 its.roots_alpha_div_sig_codes<-data.frame(q=rep(c("q0","q0","q1","q1","q2","q2")),autoclave=rep(c("A","NA","A","NA","A","NA")),sig_code=rep(c("A","B"),times=3),y_axis=rep(c(210,210,13,13,5,5)))
-
-
 
 # Plotting alpha-diversity in ggplot
 fungal_alpha_diversity<-ggplot(its.roots_alpha_diversity_long,aes(x=autoclave,y=index,fill=septoria))+
@@ -837,10 +846,9 @@ fungal_alpha_diversity<-ggplot(its.roots_alpha_diversity_long,aes(x=autoclave,y=
 fungal_alpha_diversity
 ```
 
-## Fungal Alpha-Diversity Nonautoclave
+## Fungal Alpha-Diversity Non-Autoclaved Soil Amendment
 
 Testing for differences in fungal alpha-diversity by sampling date and septoria inoculant for just the non-autoclaved soil amendments. 
-
 ```{r}
 # Reading in the rarefied ASV table 
 rare.asv.tab_its_roots_nonautoclave<-read.table("~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_11_2024_its2.v4_root_rarefaction_tables/rare.asv.tab_its_roots_nonautoclave.txt",header=TRUE,sep='\t')
@@ -906,6 +914,7 @@ par(mfrow=c(2,2))
 plot(its.roots_q0_autoclave)
 car::Anova(its.roots_q0_autoclave,type="III")
 
+# Conducting post-hoc tukey test
 its.roots.autoclave_q0_tukey<-TukeyHSD(its.roots_q0_autoclave)
 its.roots.autoclave_q0_tukey
 
@@ -936,9 +945,8 @@ fungal_alpha_diversity_autoclave<-ggplot(its.roots_autoclave_alpha_diversity_lon
 
 fungal_alpha_diversity_autoclave
 
-fungal_alpha_diversity_auto_plots<-ggarrange(fungal_alpha_diversity_autoclave,fungal_alpha_diversity_nonautoclave,ncol = 2,labels=c("B","C"),legend="none")
-
-ggarrange(fungal_alpha_diversity,fungal_alpha_diversity_auto_plots,ncol = 1,nrow=2,labels=c("A"),common.legend = TRUE)
+# Arranging all alpha-diversity plots into a single multi-paneled figure.
+fungal_alpha_diversity_auto_plots<-ggarrange(fungal_alpha_diversity,fungal_alpha_diversity_autoclave,fungal_alpha_diversity_nonautoclave,ncol = 3,labels=c("A","B","C"),legend="none")
 ```
 
 ## Bacterial Alpha-Diversity Analyses
@@ -961,9 +969,9 @@ par(mfrow=c(2,2))
 plot(v4.roots_q0)
 car::Anova(v4.roots_q0,type="III")
 
+# Conducting post-hoc tukey test to make pairwise comparisons
 v4.roots_q0_tukey<-TukeyHSD(v4.roots_q0)
-v4.roots_q0_tukey_sept_autoclave<-as.data.frame(v4.roots_q0_tukey$autoclave)
-v4.roots_q0_tukey_sept_autoclave
+v4.roots_q0_tukey
 
 
 # Performing ANOVA for q1 with interaction term first
@@ -972,9 +980,9 @@ par(mfrow=c(2,2))
 plot(v4.roots_q1)
 car::Anova(v4.roots_q1,type="III")
 
+# Conducting post-hoc tukey test to make pairwise comparisons
 v4.roots_q1_tukey<-TukeyHSD(v4.roots_q1)
-v4.roots_q1_tukey_sept_autoclave<-as.data.frame(v4.roots_q1_tukey$autoclave)
-v4.roots_q1_tukey_sept_autoclave
+v4.roots_q1_tukey
 
 # Performing ANOVA for q2 with interaction term first
 v4.roots_q2<-aov(formula=log(q2)~septoria*autoclave*date,v4.roots_alpha_diversity)
@@ -1028,14 +1036,12 @@ par(mfrow=c(2,2))
 plot(v4.roots_q0_nonautoclave)
 car::Anova(v4.roots_q0_nonautoclave,type="III")
 
-
 # Performing ANOVA for q1 with interaction term first
 v4.roots_q1_nonautoclave<-aov(formula=log(q1)~septoria*date,v4.roots_alpha_diversity_nonautoclave)
 par(mfrow=c(2,2))
 plot(v4.roots_q1_nonautoclave)
 car::Anova(v4.roots_q1_nonautoclave,type="III")
 TukeyHSD(v4.roots_q1_nonautoclave)
-
 
 # Performing ANOVA for q2 with interaction term first
 v4.roots_q2_nonautoclave<-aov(formula=log(q2)~septoria*date,v4.roots_alpha_diversity_nonautoclave)
@@ -1047,6 +1053,7 @@ TukeyHSD(v4.roots_q2_nonautoclave)
 # Converting to long form
 v4.roots_nonautoclave_alpha_diversity_long<-gather(v4.roots_alpha_diversity_nonautoclave,key="q",value="index",14:16)
 
+# Creating an object that has the significance difference lettering based on Tukey's tests. 
 v4.roots_nonautoclave_alpha_div_sig_codes<-data.frame(q=rep(c("q0","q0","q1","q1","q2","q2")),autoclave=rep(c("D10","D25","D10","D25","D10","D25")),sig_code=c(NA,NA,rep(c("A","B"),times=2)),y_axis=rep(c(NA,NA,800,800,200,200)))
 
 # Plotting alpha-diversity in ggplot
@@ -1099,6 +1106,9 @@ par(mfrow=c(2,2))
 plot(v4.roots_q2_autoclave)
 car::Anova(v4.roots_q2_autoclave,type="III")
 
+# Creating an object that has the significance difference lettering based on Tukey's tests. 
+v4.roots_autoclave_alpha_div_sig_codes<-data.frame(q=c(rep("q0",6),rep("q1",6),rep("q2",6)),date=rep(c("D10","D10","D10","D25","D25","D25"),3),sig_code=c(rep(NA,9),"A","AB","B",rep(NA,6)),y_axis=c(rep(NA,9),120,120,120,rep(NA,6)),septoria=rep(c("Mn5","NoSept","SARM07"),6))
+
 # Converting to long form
 v4.roots_autoclave_alpha_diversity_long<-gather(v4.roots_alpha_diversity_autoclave,key="q",value="index",14:16)
 
@@ -1108,20 +1118,22 @@ bacterial_alpha_diversity_autoclave<-ggplot(v4.roots_autoclave_alpha_diversity_l
   geom_jitter(position=position_dodge(0.8),aes(fill=septoria),shape=21,alpha=0.5,color="black")+
   guides(fill=guide_legend("Inoculum"))+
   theme(panel.grid=element_blank(),panel.border = element_blank(),panel.background=element_blank(),axis.ticks.x = element_blank(),axis.line.y.left = element_line(color="black"),axis.line.x.bottom = element_line(color="black"))+
+  geom_text(data=v4.roots_autoclave_alpha_div_sig_codes,aes(x=date,y=y_axis,label=sig_code),position=position_dodge(0.8))+
  ylab("Index Value")+
   xlab("Date")+
   facet_wrap(.~q,scales = "free_y",dir = "v")
 
 bacterial_alpha_diversity_autoclave
 
-bacterial_alpha_diversity_auto_plots<-ggarrange(bacterial_alpha_diversity_autoclave,bacterial_alpha_diversity_nonautoclave,ncol = 2,labels=c("B","C"),legend="none")
+# Using ggarrange to create a single multi-panel figure
+bacterial_alpha_diversity_auto_plots<-ggarrange(bacterial_alpha_diversity,bacterial_alpha_diversity_autoclave,bacterial_alpha_diversity_nonautoclave,ncol = 3,labels=c("A","B","C"),legend="none")
 
-ggarrange(bacterial_alpha_diversity,bacterial_alpha_diversity_auto_plots,ncol = 1,nrow=2,labels=c("A"),common.legend = TRUE)
+bacterial_alpha_diversity_auto_plots
 ```
 
 # Beta-Diversity Analyses
 
-Assessing differences in microbial community composition among autoclave treatments, sampling date, and septoria inoculants. 
+Conducting beta-diversity analyses to make comparisons in community composition and identify drivers of variation using principal coordinate analyses (PCoA) and permnutational multivariate analyses of variance (PERMANOVA). 
 
 ## Fungal Beta-Diversity Analyses
 
@@ -1146,17 +1158,19 @@ pcoa_all_dates_its_roots_plot<-pcoa_all_dates_its_roots[2][[1]]+
 pcoa_all_dates_its_roots_plot
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_its_roots,is.numeric)~metadata.rare.asv.tab_its_roots$septoria*metadata.rare.asv.tab_its_roots$date*metadata.rare.asv.tab_its_roots$autoclave,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots<-adonis2(select_if(metadata.rare.asv.tab_its_roots,is.numeric)~metadata.rare.asv.tab_its_roots$septoria*metadata.rare.asv.tab_its_roots$date*metadata.rare.asv.tab_its_roots$autoclave,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots$Variable<-gsub("metadata.rare.asv.tab_its_roots\\$","",permanova_all_dates_its_roots$Variable)
-permanova_all_dates_its_roots
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_fmt<-permanova_fmtr(permanova_all_dates_its_roots,df_name = "metadata.rare.asv.tab_its_roots")
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_its_roots_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_its_roots_fm",row.names=FALSE,col.names=TRUE,sep='\t')
+
 ```
 
 ### Fungal Beta-Diversity Analyses D10 Autoclave vs D25 Autoclave
 
 Assessing differences in fungal community composition within autoclaved soils only for day 10 and day 25.  
-
 ```{r}
 # Reading in the rarefied ASV table 
 rare.asv.tab_its_roots_autoclave<-read.table("~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_11_2024_its2.v4_root_rarefaction_tables/rare.asv.tab_its_roots_autoclave.txt",header=TRUE,sep='\t')
@@ -1171,12 +1185,15 @@ pcoa_all_dates_its_roots_plot_autoclave<-pcoa_all_dates_its_roots_autoclave[2][[
 pcoa_all_dates_its_roots_plot_autoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_autoclave<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_its_roots_autoclave,is.numeric)~metadata.rare.asv.tab_its_roots_autoclave$septoria*metadata.rare.asv.tab_its_roots_autoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_autoclave<-adonis2(select_if(metadata.rare.asv.tab_its_roots_autoclave,is.numeric)~metadata.rare.asv.tab_its_roots_autoclave$septoria*metadata.rare.asv.tab_its_roots_autoclave$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_autoclave$Variable<-gsub("metadata.rare.asv.tab_its_roots_autoclave\\$","",permanova_all_dates_its_roots_autoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_autoclave_fmt<-permanova_fmtr(permanova_all_dates_its_roots_autoclave,df_name = "metadata.rare.asv.tab_its_roots_autoclave")
 
-permanova_all_dates_its_roots_autoclave
+permanova_all_dates_its_roots_autoclave_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_its_roots_autoclave_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_its_roots_autoclave_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 
@@ -1201,12 +1218,16 @@ pcoa_all_dates_its_roots_plot_autoclave_no.sphaerulina<-pcoa_all_dates_its_roots
 pcoa_all_dates_its_roots_plot_autoclave_no.sphaerulina
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_autoclave_no.sphaerulina<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina,is.numeric)~metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina$septoria*metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_autoclave_no.sphaerulina<-adonis2(select_if(metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina,is.numeric)~metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina$septoria*metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_autoclave_no.sphaerulina$Variable<-gsub("metadata.rare.asv.tab_its_roots_autoclave\\$","",permanova_all_dates_its_roots_autoclave_no.sphaerulina$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_autoclave_no.sphaerulina_fmt<-permanova_fmtr(permanova_all_dates_its_roots_autoclave_no.sphaerulina,df_name = "metadata.rare.asv.tab_its_roots_autoclave_no.sphaerulina")
 
-permanova_all_dates_its_roots_autoclave_no.sphaerulina
+permanova_all_dates_its_roots_autoclave_no.sphaerulina_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_its_roots_autoclave_no.sphaerulina_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_its_roots_autoclave_no.sphaerulina_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
+
 ```
 
 ### Fungal Beta-Diversity Analyses D10 non-autoclave vs D25 non-autoclave
@@ -1227,12 +1248,15 @@ pcoa_all_dates_its_roots_plot_nonautoclave<-pcoa_all_dates_its_roots_nonautoclav
 pcoa_all_dates_its_roots_plot_nonautoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_its_roots_nonautoclave,is.numeric)~metadata.rare.asv.tab_its_roots_nonautoclave$septoria*metadata.rare.asv.tab_its_roots_nonautoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_nonautoclave<-adonis2(select_if(metadata.rare.asv.tab_its_roots_nonautoclave,is.numeric)~metadata.rare.asv.tab_its_roots_nonautoclave$septoria*metadata.rare.asv.tab_its_roots_nonautoclave$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_nonautoclave_fmt<-permanova_fmtr(permanova_all_dates_its_roots_nonautoclave,df_name = "metadata.rare.asv.tab_its_roots_nonautoclave")
 
-permanova_all_dates_its_roots_nonautoclave
+permanova_all_dates_its_roots_nonautoclave_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_its_roots_nonautoclave_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_its_roots_nonautoclave_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 
@@ -1257,12 +1281,15 @@ pcoa_all_dates_its_roots_plot_nonautoclave_no.sphaerulina<-pcoa_all_dates_its_ro
 pcoa_all_dates_its_roots_plot_nonautoclave_no.sphaerulina
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_no.sphaerulina<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina,is.numeric)~metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina$septoria*metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_nonautoclave_no.sphaerulina<-adonis2(select_if(metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina,is.numeric)~metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina$septoria*metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_no.sphaerulina$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave_no.sphaerulina$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_nonautoclave_no.sphaerulina_fmt<-permanova_fmtr(permanova_all_dates_its_roots_nonautoclave_no.sphaerulina,df_name = "metadata.rare.asv.tab_its_roots_nonautoclave_no.sphaerulina")
 
-permanova_all_dates_its_roots_nonautoclave_no.sphaerulina
+permanova_all_dates_its_roots_nonautoclave_no.sphaerulina_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_its_roots_nonautoclave_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_its_roots_nonautoclave_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 
@@ -1289,11 +1316,15 @@ pcoa_all_dates_v4_roots_plot<-pcoa_all_dates_v4_roots[2][[1]]+
 pcoa_all_dates_v4_roots_plot
 
 # Conducting PERMANOVA
-permanova_all_dates_v4_roots<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_v4_roots,is.numeric)~metadata.rare.asv.tab_v4_roots$septoria*metadata.rare.asv.tab_v4_roots$date*metadata.rare.asv.tab_v4_roots$autoclave,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_v4_roots<-adonis2(select_if(metadata.rare.asv.tab_v4_roots,is.numeric)~metadata.rare.asv.tab_v4_roots$septoria*metadata.rare.asv.tab_v4_roots$date*metadata.rare.asv.tab_v4_roots$autoclave,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_v4_roots$Variable<-gsub("metadata.rare.asv.tab_v4_roots\\$","",permanova_all_dates_v4_roots$Variable)
-permanova_all_dates_v4_roots
+# Reformatting PERMANOVA Results
+permanova_all_dates_v4_roots_fmt<-permanova_fmtr(permanova_all_dates_v4_roots,df_name = "metadata.rare.asv.tab_v4_roots")
+
+permanova_all_dates_v4_roots_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_v4_roots_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_v4_roots_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 ### Bacterial Beta-Diversity Analyses D10 Autoclave vs D25 Autoclave
@@ -1302,7 +1333,7 @@ Assessing differences in bacterial community composition within autoclaved soils
 
 ```{r}
 # Reading in the rarefied ASV table 
-rare.asv.tab_v4_roots_autoclave<-read.table("~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_11_2024_its2.v4_root_rarefaction_tables/rare.asv.tab_vr_roots_autoclave.txt",header=TRUE,sep='\t')
+rare.asv.tab_v4_roots_autoclave<-read.table("~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_11_2024_its2.v4_root_rarefaction_tables/rare.asv.tab_v4_roots_autoclave.txt",header=TRUE,sep='\t')
 
 # Merging the sample metadata with the rarefied asv table
 metadata.rare.asv.tab_v4_roots_autoclave<-merge(sample.metadata,rare.asv.tab_v4_roots_autoclave,by=0)
@@ -1314,12 +1345,15 @@ pcoa_all_dates_v4_roots_plot_autoclave<-pcoa_all_dates_v4_roots_autoclave[2][[1]
 pcoa_all_dates_v4_roots_plot_autoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_v4_roots_autoclave<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_v4_roots_autoclave,is.numeric)~metadata.rare.asv.tab_v4_roots_autoclave$septoria*metadata.rare.asv.tab_v4_roots_autoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_v4_roots_autoclave<-adonis2(select_if(metadata.rare.asv.tab_v4_roots_autoclave,is.numeric)~metadata.rare.asv.tab_v4_roots_autoclave$septoria*metadata.rare.asv.tab_v4_roots_autoclave$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_v4_roots_autoclave$Variable<-gsub("metadata.rare.asv.tab_v4_roots_autoclave\\$","",permanova_all_dates_v4_roots_autoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_v4_roots_autoclave_fmt<-permanova_fmtr(permanova_all_dates_v4_roots_autoclave,df_name = "metadata.rare.asv.tab_v4_roots_autoclave")
 
-permanova_all_dates_v4_roots_autoclave
+permanova_all_dates_v4_roots_autoclave_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_v4_roots_autoclave_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_v4_roots_autoclave_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 ### Bacterial Beta-Diversity Analyses D10 non-autoclave vs D25 non-autoclave
@@ -1340,21 +1374,26 @@ pcoa_all_dates_v4_roots_plot_nonautoclave<-pcoa_all_dates_v4_roots_nonautoclave[
 pcoa_all_dates_v4_roots_plot_nonautoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_v4_roots_nonautoclave<-as_tibble(adonis2(select_if(metadata.rare.asv.tab_v4_roots_nonautoclave,is.numeric)~metadata.rare.asv.tab_v4_roots_nonautoclave$septoria*metadata.rare.asv.tab_v4_roots_nonautoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_v4_roots_nonautoclave<-adonis2(select_if(metadata.rare.asv.tab_v4_roots_nonautoclave,is.numeric)~metadata.rare.asv.tab_v4_roots_nonautoclave$septoria*metadata.rare.asv.tab_v4_roots_nonautoclave$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_v4_roots_nonautoclave$Variable<-gsub("metadata.rare.asv.tab_v4_roots_nonautoclave\\$","",permanova_all_dates_v4_roots_nonautoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_v4_roots_nonautoclave_fmt<-permanova_fmtr(permanova_all_dates_v4_roots_nonautoclave,df_name = "metadata.rare.asv.tab_v4_roots_nonautoclave")
 
-permanova_all_dates_v4_roots_nonautoclave
+permanova_all_dates_v4_roots_nonautoclave_fmt
+
+# Saving reformatted table to file. 
+#write.table(permanova_all_dates_v4_roots_nonautoclave_fmt,file="~/OneDrive - Oak Ridge National Laboratory/septoria_in_a_bag/amplicon_sequencing/analyses_rdata/04_16_2024_its2.v4_statistical_analyses/permanova_all_dates_v4_roots_nonautoclave_fmt",row.names=FALSE,col.names=TRUE,sep='\t')
 ```
 
 ## FUNGuild Analyses
 
-Assessing effects of treatments on fungal functional guilds using FUNGuild. 
+Assessing effects of treatments on fungal functional guilds using FUNGuild. Examining the following fungal functional guilds. 
 
 ### FUNGuild Formatting
 
 Formatting fungal ASV table so that it can be imported into FUNGuild for fungal functional guild assignment. 
+
+FUNGuild assignments were made on 04/12/2024 using Guilds v.1.1. 
 
 ```{r}
 # Formatting asv table with taxonomy information for use with funguild. 
@@ -1369,217 +1408,226 @@ funguild_results_soil_roots<-read.table("~/OneDrive - Oak Ridge National Laborat
 # Subsetting Funguild results to include only relevant information. 
 funguild_results_soil_roots_guild<-subset(funguild_results_soil_roots,select=c("OTU.ID","Taxon","Guild"))
 
-# Merging funguild results with rarefied ASV Table
-funguild_results_roots_rarefied<-merge(funguild_results_soil_roots_guild,t(rare.asv.tab_its_roots),by.x="OTU.ID",by.y=0)
-
-# Converting row names to ASV labels
-row.names(funguild_results_roots_rarefied)<-funguild_results_roots_rarefied$OTU.ID
-
-# Weighting ASV counts by the number of guilds assigned to each ASV
-funguild_results_roots_rarefied.div<-merge(funguild_results_roots_rarefied[,1:3],funguild_results_roots_rarefied[,4:length(funguild_results_roots_rarefied)]/(str_count(funguild_results_roots_rarefied$Guild,pattern="-")+1),by.x=0,by.y=0)
-
-# Splitting the functional guild names by dash and creating duplicate columns. 
-funguild_results_roots_rarefied.div.sep<-as.data.frame(separate_rows(funguild_results_roots_rarefied.div, Guild, sep="-"))
 ```
 
+### Funcitional Guilds from Root Fungal Communities of Autoclaved Soil Amendments
 
+Because soil amendment type is the biggest driver of community composition, I am starting the funguild analyses with the communities split by amendment type starting with autoclaved soil amendments. 
 
+```{r}
+# Merging funguild results with rarefied ASV Table
+funguild_results_roots_autoclaved_rarefied<-merge(funguild_results_soil_roots_guild,t(rare.asv.tab_its_roots_autoclave),by.x="OTU.ID",by.y=0)
+
+# Converting row names to ASV labels
+row.names(funguild_results_roots_autoclaved_rarefied)<-funguild_results_roots_autoclaved_rarefied$OTU.ID
+
+# Weighting ASV counts by the number of guilds assigned to each ASV
+funguild_results_roots_autoclaved_rarefied.div<-merge(funguild_results_roots_autoclaved_rarefied[,1:3],funguild_results_roots_autoclaved_rarefied[,4:length(funguild_results_roots_autoclaved_rarefied)]/(str_count(funguild_results_roots_autoclaved_rarefied$Guild,pattern="-")+1),by.x=0,by.y=0)
+
+# Splitting the functional guild names by dash and creating duplicate columns. 
+funguild_results_roots_autoclaved_rarefied.div.sep<-as.data.frame(separate_rows(funguild_results_roots_autoclaved_rarefied.div, Guild, sep="-"))
+```
+
+#### Putative Plant Pathogenic Fungi from Root Fungal Communities of Autoclaved Soil Amendments
 
 ```{r}
 # Using grep to pull out only ASVs identified as putative plant pathogens
-funguild_results_roots_rarefied.div.sep.plant.pathogen<-funguild_results_roots_rarefied.div.sep[grep("Plant Pathogen",funguild_results_roots_rarefied.div.sep$Guild),]
+funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen<-funguild_results_roots_autoclaved_rarefied.div.sep[grep("Plant Pathogen",funguild_results_roots_autoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen)<-funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen$Row.names
 
 # Pulling out the ASV table
-funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt<-select_if(funguild_results_roots_rarefied.div.sep.plant.pathogen,is.numeric)
+funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt<-select_if(funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen,is.numeric)
 
 # Adding sample metadata to the ASV table
-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt)),by.x=0,by.y=0))
-
-# Subsetting by autoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_autoclave<-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt$autoclave,invert=TRUE),]
+metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt)),by.x=0,by.y=0))
 
 # Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_plant.pathogen_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_autoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
+pcoa_all_dates_its_roots_plant.pathogen_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
 pcoa_all_dates_its_roots_plot_plant.pathogen_autoclave<-pcoa_all_dates_its_roots_plant.pathogen_autoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
 pcoa_all_dates_its_roots_plot_plant.pathogen_autoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_autoclave_plant.pathogen<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_autoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_autoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_autoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_autoclave_plant.pathogen<-adonis2(select_if(metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt,is.numeric)~metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt$septoria*metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_autoclave_plant.pathogen$Variable<-gsub("metadata.rare.asv.tab_its_roots_autoclave\\$","",permanova_all_dates_its_roots_autoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_autoclave_plant.pathogen_fmt<-permanova_fmtr(permanova_all_dates_its_roots_autoclave_plant.pathogen,df_name = "metadata_funguild_results_roots_autoclaved_rarefied.div.sep.plant.pathogen_fmt")
 
-permanova_all_dates_its_roots_autoclave_plant.pathogen
+permanova_all_dates_its_roots_autoclave_plant.pathogen_fmt
+```
 
-# Subsetting by nonautoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave<-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt$autoclave,invert=FALSE),]
+#### Putative Mycoparasitic Fungi from Root Fungal Communities of Autoclaved Soil Amendments
 
+```{r}
+# Using grep to pull out only ASVs identified as putative plant pathogens
+funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites<-funguild_results_roots_autoclaved_rarefied.div.sep[grep("Fungal Parasite",funguild_results_roots_autoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites)<-funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites$Row.names
+
+# Pulling out the ASV table
+funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt<-select_if(funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites,is.numeric)
+
+# Adding sample metadata to the ASV table
+metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt)),by.x=0,by.y=0))
 
 # Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_plant.pathogen_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
+pcoa_all_dates_its_roots_fungal.parasites_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
+pcoa_all_dates_its_roots_plot_fungal.parasites_autoclave<-pcoa_all_dates_its_roots_fungal.parasites_autoclave[2][[1]]+
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+pcoa_all_dates_its_roots_plot_fungal.parasites_autoclave
+
+# Conducting PERMANOVA
+permanova_all_dates_its_roots_autoclave_fungal.parasites<-adonis2(select_if(metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt,is.numeric)~metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt$septoria*metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt$date,method = "bray",permutations = 9999)
+
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_autoclave_fungal.parasites_fmt<-permanova_fmtr(permanova_all_dates_its_roots_autoclave_fungal.parasites,df_name = "metadata_funguild_results_roots_autoclaved_rarefied.div.sep.fungal.parasites_fmt")
+
+permanova_all_dates_its_roots_autoclave_fungal.parasites_fmt
+```
+
+#### Putative Mycorrhizal from Root Fungal Communities of Autoclaved Soil Amendments
+
+```{r}
+# Using grep to pull out only ASVs identified as putative plant pathogens
+funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal<-funguild_results_roots_autoclaved_rarefied.div.sep[grep("Ectomycorrhizal",funguild_results_roots_autoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal)<-funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal$Row.names
+
+# Pulling out the ASV table
+funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-select_if(funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal,is.numeric)
+
+funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt[,colSums(funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt)>0]
+
+# Adding sample metadata to the ASV table
+metadata_funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt)),by.x=0,by.y=0))
+
+# Generating PCoA and ordination plot
+pcoa_all_dates_its_roots_ectomycorrhizal_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt,method = "bray",point_ellipse_color = "septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "septoria")
+pcoa_all_dates_its_roots_plot_ectomycorrhizal_autoclave<-pcoa_all_dates_its_roots_ectomycorrhizal_autoclave[2][[1]]+
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+pcoa_all_dates_its_roots_plot_ectomycorrhizal_autoclave
+
+# Conducting PERMANOVA
+permanova_all_dates_its_roots_autoclave_ectomycorrhizal<-adonis2(select_if(metadata_funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt,is.numeric)~metadata_funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt$septoria,method = "bray",permutations = 9999)
+
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_autoclave_ectomycorrhizal_fmt<-permanova_fmtr(permanova_all_dates_its_roots_autoclave_ectomycorrhizal,df_name = "metadata_funguild_results_roots_autoclaved_rarefied.div.sep.ectomycorrhizal_fmt")
+
+permanova_all_dates_its_roots_autoclave_ectomycorrhizal_fmt
+```
+
+### Funcitional Guilds from Root Fungal Communities of Non-autoclaved Soil Amendments
+
+Because soil amendment type is the biggest driver of community composition, I am starting the funguild analyses with the communities split by amendment type starting with non-autoclaved soil amendments. 
+
+```{r}
+# Merging funguild results with rarefied ASV Table
+funguild_results_roots_nonautoclaved_rarefied<-merge(funguild_results_soil_roots_guild,t(rare.asv.tab_its_roots_nonautoclave),by.x="OTU.ID",by.y=0)
+
+# Converting row names to ASV labels
+row.names(funguild_results_roots_nonautoclaved_rarefied)<-funguild_results_roots_nonautoclaved_rarefied$OTU.ID
+
+# Weighting ASV counts by the number of guilds assigned to each ASV
+funguild_results_roots_nonautoclaved_rarefied.div<-merge(funguild_results_roots_nonautoclaved_rarefied[,1:3],funguild_results_roots_nonautoclaved_rarefied[,4:length(funguild_results_roots_nonautoclaved_rarefied)]/(str_count(funguild_results_roots_nonautoclaved_rarefied$Guild,pattern="-")+1),by.x=0,by.y=0)
+
+# Splitting the functional guild names by dash and creating duplicate columns. 
+funguild_results_roots_nonautoclaved_rarefied.div.sep<-as.data.frame(separate_rows(funguild_results_roots_nonautoclaved_rarefied.div, Guild, sep="-"))
+
+```
+
+#### Putative Plant Pathogenic Fungi from Root Fungal Communities of Non-autoclaved Soil Amendments
+
+```{r}
+# Using grep to pull out only ASVs identified as putative plant pathogens
+funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen<-funguild_results_roots_nonautoclaved_rarefied.div.sep[grep("Plant Pathogen",funguild_results_roots_nonautoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen)<-funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen$Row.names
+
+# Pulling out the ASV table
+funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt<-select_if(funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen,is.numeric)
+
+# Adding sample metadata to the ASV table
+metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt)),by.x=0,by.y=0))
+
+# Generating PCoA and ordination plot
+pcoa_all_dates_its_roots_plant.pathogen_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
 pcoa_all_dates_its_roots_plot_plant.pathogen_nonautoclave<-pcoa_all_dates_its_roots_plant.pathogen_nonautoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
 pcoa_all_dates_its_roots_plot_plant.pathogen_nonautoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_nonautoclave_plant.pathogen<-adonis2(select_if(metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt,is.numeric)~metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt$septoria*metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_nonautoclave_plant.pathogen_fmt<-permanova_fmtr(permanova_all_dates_its_roots_nonautoclave_plant.pathogen,df_name = "metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.plant.pathogen_fmt")
 
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen
-
-
-# Removing ASVs identified as Sphaerulina
-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave_no.sphaerulina<-metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave[,!(paste0("asv_its.",colnames(metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave))%in%sphaerulina_asv_id)]
-
-# Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_plant.pathogen_nonautoclave_no.sphaerulina<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave_no.sphaerulina,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_plant.pathogen_nonautoclave_no.sphaerulina<-pcoa_all_dates_its_roots_plant.pathogen_nonautoclave_no.sphaerulina[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_plant.pathogen_nonautoclave_no.sphaerulina
-
-# Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen_no.sphaerulina<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave_no.sphaerulina,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave_no.sphaerulina$septoria*metadata_funguild_results_roots_rarefied.div.sep.plant.pathogen_fmt_nonautoclave_no.sphaerulina$date,method = "bray",permutations = 9999),rownames = "Variable")
-
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen_no.sphaerulina$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave_plant.pathogen_no.sphaerulina$Variable)
-
-permanova_all_dates_its_roots_nonautoclave_plant.pathogen_no.sphaerulina
-
+permanova_all_dates_its_roots_nonautoclave_plant.pathogen_fmt
 ```
 
-
+#### Putative Mycoparasitic Fungi from Root Fungal Communities of nonautoclaved Soil Amendments
 
 ```{r}
 # Using grep to pull out only ASVs identified as putative plant pathogens
-funguild_results_roots_rarefied.div.sep.mycoparasite<-funguild_results_roots_rarefied.div.sep[grep("Fungal Parasite",funguild_results_roots_rarefied.div.sep$Guild),]
+funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites<-funguild_results_roots_nonautoclaved_rarefied.div.sep[grep("Fungal Parasite",funguild_results_roots_nonautoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites)<-funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites$Row.names
 
 # Pulling out the ASV table
-funguild_results_roots_rarefied.div.sep.mycoparasite_fmt<-select_if(funguild_results_roots_rarefied.div.sep.mycoparasite,is.numeric)
+funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt<-select_if(funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites,is.numeric)
 
 # Adding sample metadata to the ASV table
-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_rarefied.div.sep.mycoparasite_fmt)),by.x=0,by.y=0))
-
-# Subsetting by autoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_autoclave<-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt$autoclave,invert=TRUE),]
+metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt)),by.x=0,by.y=0))
 
 # Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycoparasite_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_autoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycoparasite_autoclave<-pcoa_all_dates_its_roots_mycoparasite_autoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycoparasite_autoclave
+pcoa_all_dates_its_roots_fungal.parasites_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
+pcoa_all_dates_its_roots_plot_fungal.parasites_nonautoclave<-pcoa_all_dates_its_roots_fungal.parasites_nonautoclave[2][[1]]+
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+pcoa_all_dates_its_roots_plot_fungal.parasites_nonautoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_autoclave_mycoparasite<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_autoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_autoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_autoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_nonautoclave_fungal.parasites<-adonis2(select_if(metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt,is.numeric)~metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt$septoria*metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_autoclave_mycoparasite$Variable<-gsub("metadata.rare.asv.tab_its_roots_autoclave\\$","",permanova_all_dates_its_roots_autoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_nonautoclave_fungal.parasites_fmt<-permanova_fmtr(permanova_all_dates_its_roots_nonautoclave_fungal.parasites,df_name = "metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.fungal.parasites_fmt")
 
-permanova_all_dates_its_roots_autoclave_mycoparasite
-
-# Subsetting by nonautoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave<-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt$autoclave,invert=FALSE),]
-
-
-# Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycoparasite_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycoparasite_nonautoclave<-pcoa_all_dates_its_roots_mycoparasite_nonautoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycoparasite_nonautoclave
-
-# Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_mycoparasite<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
-
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_mycoparasite$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave$Variable)
-
-permanova_all_dates_its_roots_nonautoclave_mycoparasite
-
-
-# Removing ASVs identified as Sphaerulina
-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave_no.sphaerulina<-metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave[,!(paste0("asv_its.",colnames(metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave))%in%sphaerulina_asv_id)]
-
-# Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycoparasite_nonautoclave_no.sphaerulina<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave_no.sphaerulina,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycoparasite_nonautoclave_no.sphaerulina<-pcoa_all_dates_its_roots_mycoparasite_nonautoclave_no.sphaerulina[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycoparasite_nonautoclave_no.sphaerulina
-
-# Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_mycoparasite_no.sphaerulina<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave_no.sphaerulina,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave_no.sphaerulina$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycoparasite_fmt_nonautoclave_no.sphaerulina$date,method = "bray",permutations = 9999),rownames = "Variable")
-
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_mycoparasite_no.sphaerulina$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave_mycoparasite_no.sphaerulina$Variable)
-
-permanova_all_dates_its_roots_nonautoclave_mycoparasite_no.sphaerulina
-
+permanova_all_dates_its_roots_nonautoclave_fungal.parasites_fmt
 ```
+
+#### Putative Mycorrhizal from Root Fungal Communities of nonautoclaved Soil Amendments
 
 ```{r}
 # Using grep to pull out only ASVs identified as putative plant pathogens
-funguild_results_roots_rarefied.div.sep.mycorrhizal<-funguild_results_roots_rarefied.div.sep[grep("mycorrhizal",funguild_results_roots_rarefied.div.sep$Guild),]
+funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal<-funguild_results_roots_nonautoclaved_rarefied.div.sep[grep("Ectomycorrhizal",funguild_results_roots_nonautoclaved_rarefied.div.sep$Guild),]
+
+# Making row names the ASV ID
+row.names(funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal)<-funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal$Row.names
 
 # Pulling out the ASV table
-funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt<-select_if(funguild_results_roots_rarefied.div.sep.mycorrhizal,is.numeric)
+funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-select_if(funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal,is.numeric)
 
-colSums(funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt)
+funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt[,colSums(funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt)>0]
 
 # Adding sample metadata to the ASV table
-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt)),by.x=0,by.y=0))
-
-# Subsetting by autoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_autoclave<-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt$autoclave,invert=TRUE),]
+metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt<-as.data.frame(merge(sample.metadata,as.data.frame(t(funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt)),by.x=0,by.y=0))
 
 # Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycorrhizal_autoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_autoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycorrhizal_autoclave<-pcoa_all_dates_its_roots_mycorrhizal_autoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycorrhizal_autoclave
+pcoa_all_dates_its_roots_ectomycorrhizal_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt,method = "bray",point_ellipse_color = "date_septoria",shape = "date_septoria",polygon = TRUE,ellipse_fill = "date_septoria")
+pcoa_all_dates_its_roots_plot_ectomycorrhizal_nonautoclave<-pcoa_all_dates_its_roots_ectomycorrhizal_nonautoclave[2][[1]]+
+ guides(fill=guide_legend("Sampling Date x Inoculant"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
+pcoa_all_dates_its_roots_plot_ectomycorrhizal_nonautoclave
 
 # Conducting PERMANOVA
-permanova_all_dates_its_roots_autoclave_mycorrhizal<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_autoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_autoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_autoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
+permanova_all_dates_its_roots_nonautoclave_ectomycorrhizal<-adonis2(select_if(metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt,is.numeric)~metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt$septoria*metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt$date,method = "bray",permutations = 9999)
 
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_autoclave_mycorrhizal$Variable<-gsub("metadata.rare.asv.tab_its_roots_autoclave\\$","",permanova_all_dates_its_roots_autoclave$Variable)
+# Reformatting PERMANOVA Results
+permanova_all_dates_its_roots_nonautoclave_ectomycorrhizal_fmt<-permanova_fmtr(permanova_all_dates_its_roots_nonautoclave_ectomycorrhizal,df_name = "metadata_funguild_results_roots_nonautoclaved_rarefied.div.sep.ectomycorrhizal_fmt")
 
-permanova_all_dates_its_roots_autoclave_mycorrhizal
-
-# Subsetting by nonautoclave treatment
-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave<-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt[grep("NA",metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt$autoclave,invert=FALSE),]
-
-
-# Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycorrhizal_nonautoclave<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycorrhizal_nonautoclave<-pcoa_all_dates_its_roots_mycorrhizal_nonautoclave[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycorrhizal_nonautoclave
-
-# Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave$date,method = "bray",permutations = 9999),rownames = "Variable")
-
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave$Variable)
-
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal
-
-
-# Removing ASVs identified as Sphaerulina
-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave_no.sphaerulina<-metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave[,!(paste0("asv_its.",colnames(metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave))%in%sphaerulina_asv_id)]
-
-# Generating PCoA and ordination plot
-pcoa_all_dates_its_roots_mycorrhizal_nonautoclave_no.sphaerulina<-pcoa_imager(table = metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave_no.sphaerulina,method = "bray",point_ellipse_color = "date_septoria",shape = "septoria",polygon = TRUE,ellipse_fill = "date_septoria")
-pcoa_all_dates_its_roots_plot_mycorrhizal_nonautoclave_no.sphaerulina<-pcoa_all_dates_its_roots_mycorrhizal_nonautoclave_no.sphaerulina[2][[1]]+
- guides(fill=guide_legend("Sampling Date"),shape=guide_legend("Sampling Date x Inoculant"), color=guide_legend("Sampling Date x Inoculant"))
-pcoa_all_dates_its_roots_plot_mycorrhizal_nonautoclave_no.sphaerulina
-
-# Conducting PERMANOVA
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal_no.sphaerulina<-as_tibble(adonis2(select_if(metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave_no.sphaerulina,is.numeric)~metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave_no.sphaerulina$septoria*metadata_funguild_results_roots_rarefied.div.sep.mycorrhizal_fmt_nonautoclave_no.sphaerulina$date,method = "bray",permutations = 9999),rownames = "Variable")
-
-# Formatting table so it is easier to read
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal_no.sphaerulina$Variable<-gsub("metadata.rare.asv.tab_its_roots_nonautoclave\\$","",permanova_all_dates_its_roots_nonautoclave_mycorrhizal_no.sphaerulina$Variable)
-
-permanova_all_dates_its_roots_nonautoclave_mycorrhizal_no.sphaerulina
-
+permanova_all_dates_its_roots_nonautoclave_ectomycorrhizal_fmt
 ```
+
